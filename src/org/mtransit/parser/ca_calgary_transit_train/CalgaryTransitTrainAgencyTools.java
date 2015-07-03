@@ -1,6 +1,7 @@
 package org.mtransit.parser.ca_calgary_transit_train;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
@@ -146,7 +147,7 @@ public class CalgaryTransitTrainAgencyTools extends DefaultAgencyTools {
 	private static final String STOP_CODE_SADDLETOWNE = "9781"; // first station 202, 1
 
 	@Override
-	public int compare(MTripStop ts1, MTripStop ts2, GStop ts1GStop, GStop ts2GStop) {
+	public int compare(long routeId, List<MTripStop> list1, List<MTripStop> list2, MTripStop ts1, MTripStop ts2, GStop ts1GStop, GStop ts2GStop) {
 		if (ts1.getTripId() == TRIP_ID_BLUE_SADDLETOWNE) {
 			if (STOP_CODE_69TH_ST.equals(ts1GStop.stop_code)) {
 				return +1;
@@ -160,7 +161,7 @@ public class CalgaryTransitTrainAgencyTools extends DefaultAgencyTools {
 				return -1;
 			}
 		}
-		return super.compare(ts1, ts2, ts1GStop, ts2GStop);
+		return super.compare(routeId, list1, list2, ts1, ts2, ts1GStop, ts2GStop);
 	}
 
 	private static final long RID_RED = 201l;
