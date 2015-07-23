@@ -77,12 +77,12 @@ public class CalgaryTransitTrainAgencyTools extends DefaultAgencyTools {
 
 	@Override
 	public boolean excludeRoute(GRoute gRoute) {
-		return gRoute.route_type != MAgency.ROUTE_TYPE_LIGHT_RAIL; // declared as light rail but we classify it as a train (not on the road)
+		return gRoute.getRouteType() != MAgency.ROUTE_TYPE_LIGHT_RAIL; // declared as light rail but we classify it as a train (not on the road)
 	}
 
 	@Override
 	public long getRouteId(GRoute gRoute) {
-		return Long.parseLong(gRoute.route_short_name); // using route short name as route ID
+		return Long.parseLong(gRoute.getRouteShortName()); // using route short name as route ID
 	}
 
 	private static final int RSN_RED = 201;
@@ -100,7 +100,7 @@ public class CalgaryTransitTrainAgencyTools extends DefaultAgencyTools {
 
 	@Override
 	public String getRouteLongName(GRoute gRoute) {
-		int rsn = Integer.parseInt(gRoute.route_short_name);
+		int rsn = Integer.parseInt(gRoute.getRouteShortName());
 		switch (rsn) {
 		// @formatter:off
 		case RSN_RED: return RLN_RED;
@@ -127,7 +127,7 @@ public class CalgaryTransitTrainAgencyTools extends DefaultAgencyTools {
 
 	@Override
 	public String getRouteColor(GRoute gRoute) {
-		int rsn = Integer.parseInt(gRoute.route_short_name);
+		int rsn = Integer.parseInt(gRoute.getRouteShortName());
 		switch (rsn) {
 		// @formatter:off
 		case RSN_RED: return COLOR_RED_LINE;
@@ -149,15 +149,15 @@ public class CalgaryTransitTrainAgencyTools extends DefaultAgencyTools {
 	@Override
 	public int compare(long routeId, List<MTripStop> list1, List<MTripStop> list2, MTripStop ts1, MTripStop ts2, GStop ts1GStop, GStop ts2GStop) {
 		if (ts1.getTripId() == TRIP_ID_BLUE_SADDLETOWNE) {
-			if (STOP_CODE_69TH_ST.equals(ts1GStop.stop_code)) {
+			if (STOP_CODE_69TH_ST.equals(ts1GStop.getStopCode())) {
 				return +1;
-			} else if (STOP_CODE_69TH_ST.equals(ts2GStop.stop_code)) {
+			} else if (STOP_CODE_69TH_ST.equals(ts2GStop.getStopCode())) {
 				return -1;
 			}
 		} else if (ts1.getTripId() == TRIP_ID_BLUE_69TH_ST) {
-			if (STOP_CODE_SADDLETOWNE.equals(ts1GStop.stop_code)) {
+			if (STOP_CODE_SADDLETOWNE.equals(ts1GStop.getStopCode())) {
 				return +1;
-			} else if (STOP_CODE_SADDLETOWNE.equals(ts2GStop.stop_code)) {
+			} else if (STOP_CODE_SADDLETOWNE.equals(ts2GStop.getStopCode())) {
 				return -1;
 			}
 		}
@@ -170,19 +170,19 @@ public class CalgaryTransitTrainAgencyTools extends DefaultAgencyTools {
 	@Override
 	public void setTripHeadsign(MRoute mRoute, MTrip mTrip, GTrip gTrip, GSpec gtfs) {
 		if (mRoute.id == RID_RED) {
-			if (gTrip.direction_id == 0) {
-				mTrip.setHeadsignString(TUSCANY, gTrip.direction_id);
+			if (gTrip.getDirectionId() == 0) {
+				mTrip.setHeadsignString(TUSCANY, gTrip.getDirectionId());
 				return;
-			} else if (gTrip.direction_id == 1) {
-				mTrip.setHeadsignString(SOMERSET_BRIDLEWOOD, gTrip.direction_id);
+			} else if (gTrip.getDirectionId() == 1) {
+				mTrip.setHeadsignString(SOMERSET_BRIDLEWOOD, gTrip.getDirectionId());
 				return;
 			}
 		} else if (mRoute.id == RID_BLUE) {
-			if (gTrip.direction_id == 0) {
-				mTrip.setHeadsignString(SADDLETOWNE, gTrip.direction_id);
+			if (gTrip.getDirectionId() == 0) {
+				mTrip.setHeadsignString(SADDLETOWNE, gTrip.getDirectionId());
 				return;
-			} else if (gTrip.direction_id == 1) {
-				mTrip.setHeadsignString(_69TH_ST, gTrip.direction_id);
+			} else if (gTrip.getDirectionId() == 1) {
+				mTrip.setHeadsignString(_69TH_ST, gTrip.getDirectionId());
 				return;
 			}
 		}
