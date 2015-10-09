@@ -169,7 +169,7 @@ public class CalgaryTransitTrainAgencyTools extends DefaultAgencyTools {
 
 	@Override
 	public void setTripHeadsign(MRoute mRoute, MTrip mTrip, GTrip gTrip, GSpec gtfs) {
-		if (mRoute.id == RID_RED) {
+		if (mRoute.getId() == RID_RED) {
 			if (gTrip.getDirectionId() == 0) {
 				mTrip.setHeadsignString(TUSCANY, gTrip.getDirectionId());
 				return;
@@ -177,7 +177,7 @@ public class CalgaryTransitTrainAgencyTools extends DefaultAgencyTools {
 				mTrip.setHeadsignString(SOMERSET_BRIDLEWOOD, gTrip.getDirectionId());
 				return;
 			}
-		} else if (mRoute.id == RID_BLUE) {
+		} else if (mRoute.getId() == RID_BLUE) {
 			if (gTrip.getDirectionId() == 0) {
 				mTrip.setHeadsignString(SADDLETOWNE, gTrip.getDirectionId());
 				return;
