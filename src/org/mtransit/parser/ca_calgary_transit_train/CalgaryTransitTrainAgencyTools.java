@@ -23,6 +23,7 @@ import org.mtransit.parser.mt.data.MTripStop;
 // https://www.calgarytransit.com/developer-resources
 // https://data.calgary.ca/OpenData/Pages/DatasetDetails.aspx?DatasetID=PDC0-99999-99999-00501-P(CITYonlineDefault)
 // https://data.calgary.ca/_layouts/OpenData/DownloadDataset.ashx?Format=FILE&DatasetId=PDC0-99999-99999-00501-P(CITYonlineDefault)&VariantId=5(CITYonlineDefault)
+// https://data.calgary.ca/_layouts/OpenData/DownloadDataset.ashx?Format=FILE&DatasetId=PDC0-99999-99999-00501-P(CITYonlineDefault)&VariantId=6(CITYonlineDefault)
 public class CalgaryTransitTrainAgencyTools extends DefaultAgencyTools {
 
 	public static void main(String[] args) {
@@ -90,13 +91,14 @@ public class CalgaryTransitTrainAgencyTools extends DefaultAgencyTools {
 
 	private static final String SADDLETOWNE = "Saddletowne";
 	private static final String SOMERSET_BRIDLEWOOD = "Somerset-Bridlewood";
-	private static final String _69TH_ST = "69th St";
+	private static final String _69_ST = "69 St";
+	private static final String _69_ST_STATION = _69_ST + " Sta";
 	private static final String TUSCANY = "Tuscany";
 
 	private static final String SLASH = " / ";
 
 	private static final String RLN_RED = TUSCANY + SLASH + SOMERSET_BRIDLEWOOD;
-	private static final String RLN_BLUE = _69TH_ST + SLASH + SADDLETOWNE;
+	private static final String RLN_BLUE = _69_ST_STATION + SLASH + SADDLETOWNE;
 
 	@Override
 	public String getRouteLongName(GRoute gRoute) {
@@ -107,7 +109,7 @@ public class CalgaryTransitTrainAgencyTools extends DefaultAgencyTools {
 		case RSN_BLUE: return RLN_BLUE;
 		// @formatter:on
 		default:
-			System.out.println("Unexpected route long name " + gRoute);
+			System.out.printf("\nUnexpected route long name for %s!\n", gRoute);
 			System.exit(-1);
 			return null;
 		}
@@ -169,30 +171,32 @@ public class CalgaryTransitTrainAgencyTools extends DefaultAgencyTools {
 
 	@Override
 	public void setTripHeadsign(MRoute mRoute, MTrip mTrip, GTrip gTrip, GSpec gtfs) {
-		if (mRoute.getId() == RID_RED) {
-			if (gTrip.getDirectionId() == 0) {
-				mTrip.setHeadsignString(TUSCANY, gTrip.getDirectionId());
-				return;
-			} else if (gTrip.getDirectionId() == 1) {
-				mTrip.setHeadsignString(SOMERSET_BRIDLEWOOD, gTrip.getDirectionId());
-				return;
+		mTrip.setHeadsignString(cleanTripHeadsign(gTrip.getTripHeadsign()), gTrip.getDirectionId());
+	}
+
+	@Override
+	public boolean mergeHeadsign(MTrip mTrip, MTrip mTripToMerge) {
+		if (mTrip.getRouteId() == RID_RED) {
+			if (mTrip.getHeadsignId() == 1) {
+				mTrip.setHeadsignString(SOMERSET_BRIDLEWOOD, mTrip.getHeadsignId());
+				return true;
 			}
-		} else if (mRoute.getId() == RID_BLUE) {
-			if (gTrip.getDirectionId() == 0) {
-				mTrip.setHeadsignString(SADDLETOWNE, gTrip.getDirectionId());
-				return;
-			} else if (gTrip.getDirectionId() == 1) {
-				mTrip.setHeadsignString(_69TH_ST, gTrip.getDirectionId());
-				return;
+		} else if (mTrip.getRouteId() == RID_BLUE) {
+			if (mTrip.getHeadsignId() == 1) {
+				mTrip.setHeadsignString(_69_ST_STATION, mTrip.getHeadsignId());
+				return true;
 			}
 		}
-		System.out.println("Unexpected trip " + gTrip);
+		System.out.printf("\nUnexpected trips to merge %s & %s!\n", mTrip, mTripToMerge);
 		System.exit(-1);
+		return false;
 	}
 
 	@Override
 	public String cleanTripHeadsign(String tripHeadsign) {
 		tripHeadsign = tripHeadsign.toLowerCase(Locale.ENGLISH);
+		tripHeadsign = CleanUtils.cleanStreetTypes(tripHeadsign);
+		tripHeadsign = CleanUtils.cleanNumbers(tripHeadsign);
 		return CleanUtils.cleanLabel(tripHeadsign);
 	}
 
