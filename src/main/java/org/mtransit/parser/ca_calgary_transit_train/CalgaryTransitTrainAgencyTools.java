@@ -1,24 +1,26 @@
 package org.mtransit.parser.ca_calgary_transit_train;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.regex.Pattern;
-
-import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.mtransit.parser.CleanUtils;
 import org.mtransit.parser.DefaultAgencyTools;
+import org.mtransit.parser.MTLog;
+import org.mtransit.parser.StringUtils;
 import org.mtransit.parser.Utils;
 import org.mtransit.parser.gtfs.data.GCalendar;
 import org.mtransit.parser.gtfs.data.GCalendarDate;
 import org.mtransit.parser.gtfs.data.GRoute;
 import org.mtransit.parser.gtfs.data.GSpec;
-import org.mtransit.parser.gtfs.data.GStop;
 import org.mtransit.parser.gtfs.data.GTrip;
 import org.mtransit.parser.mt.data.MAgency;
 import org.mtransit.parser.mt.data.MRoute;
-import org.mtransit.parser.CleanUtils;
 import org.mtransit.parser.mt.data.MTrip;
-import org.mtransit.parser.mt.data.MTripStop;
+
+import java.util.HashSet;
+import java.util.Locale;
+import java.util.regex.Pattern;
+
+import static org.mtransit.parser.StringUtils.EMPTY;
 
 // https://www.calgarytransit.com/developer-resources
 // https://data.calgary.ca/download/npk7-z3bj/application%2Fzip
@@ -27,7 +29,7 @@ import org.mtransit.parser.mt.data.MTripStop;
 // https://data.calgary.ca/_layouts/OpenData/DownloadDataset.ashx?Format=FILE&DatasetId=PDC0-99999-99999-00501-P(CITYonlineDefault)&VariantId=6(CITYonlineDefault)
 public class CalgaryTransitTrainAgencyTools extends DefaultAgencyTools {
 
-	public static void main(String[] args) {
+	public static void main(@Nullable String[] args) {
 		if (args == null || args.length == 0) {
 			args = new String[3];
 			args[0] = "input/gtfs.zip";
@@ -37,77 +39,80 @@ public class CalgaryTransitTrainAgencyTools extends DefaultAgencyTools {
 		new CalgaryTransitTrainAgencyTools().start(args);
 	}
 
-	private HashSet<String> serviceIds;
+	@Nullable
+	private HashSet<Integer> serviceIdInts;
 
 	@Override
-	public void start(String[] args) {
-		System.out.printf("\nGenerating Calgary Transit train data...");
+	public void start(@NotNull String[] args) {
+		MTLog.log("Generating Calgary Transit train data...");
 		long start = System.currentTimeMillis();
-		this.serviceIds = extractUsefulServiceIds(args, this);
+		this.serviceIdInts = extractUsefulServiceIdInts(args, this, true);
 		super.start(args);
-		System.out.printf("\nGenerating Calgary Transit train data... DONE in %s.\n", Utils.getPrettyDuration(System.currentTimeMillis() - start));
+		MTLog.log("Generating Calgary Transit train data... DONE in %s.", Utils.getPrettyDuration(System.currentTimeMillis() - start));
 	}
 
 	@Override
 	public boolean excludingAll() {
-		return this.serviceIds != null && this.serviceIds.isEmpty();
+		return this.serviceIdInts != null && this.serviceIdInts.isEmpty();
 	}
 
 	@Override
-	public boolean excludeCalendar(GCalendar gCalendar) {
-		if (this.serviceIds != null) {
-			return excludeUselessCalendar(gCalendar, this.serviceIds);
+	public boolean excludeCalendar(@NotNull GCalendar gCalendar) {
+		if (this.serviceIdInts != null) {
+			return excludeUselessCalendarInt(gCalendar, this.serviceIdInts);
 		}
 		return super.excludeCalendar(gCalendar);
 	}
 
 	@Override
-	public boolean excludeCalendarDate(GCalendarDate gCalendarDates) {
-		if (this.serviceIds != null) {
-			return excludeUselessCalendarDate(gCalendarDates, this.serviceIds);
+	public boolean excludeCalendarDate(@NotNull GCalendarDate gCalendarDates) {
+		if (this.serviceIdInts != null) {
+			return excludeUselessCalendarDateInt(gCalendarDates, this.serviceIdInts);
 		}
 		return super.excludeCalendarDate(gCalendarDates);
 	}
 
 	@Override
-	public boolean excludeTrip(GTrip gTrip) {
-		if (this.serviceIds != null) {
-			return excludeUselessTrip(gTrip, this.serviceIds);
+	public boolean excludeTrip(@NotNull GTrip gTrip) {
+		if (this.serviceIdInts != null) {
+			return excludeUselessTripInt(gTrip, this.serviceIdInts);
 		}
 		return super.excludeTrip(gTrip);
 	}
 
+	@NotNull
 	@Override
 	public Integer getAgencyRouteType() {
 		return MAgency.ROUTE_TYPE_TRAIN;
 	}
 
 	@Override
-	public boolean excludeRoute(GRoute gRoute) {
+	public boolean excludeRoute(@NotNull GRoute gRoute) {
 		return gRoute.getRouteType() != MAgency.ROUTE_TYPE_LIGHT_RAIL; // declared as light rail but we classify it as a train (not on the road)
 	}
 
 	@Override
-	public long getRouteId(GRoute gRoute) {
+	public long getRouteId(@NotNull GRoute gRoute) {
 		return Long.parseLong(gRoute.getRouteShortName()); // using route short name as route ID
 	}
 
 	private static final int RSN_RED = 201;
 	private static final int RSN_BLUE = 202;
 
-	private static final String SADDLETOWNE = "Saddletowne";
-	private static final String SOMERSET_BRIDLEWOOD = "Somerset-Bridlewood";
+	private static final String SADDLE_TOWNE = "Saddletowne";
+	private static final String SOMERSET_BRIDLE_WOOD = "Somerset-Bridlewood";
 	private static final String _69_ST = "69 St";
 	private static final String _69_ST_STATION = _69_ST + " Sta";
 	private static final String TUSCANY = "Tuscany";
 
 	private static final String SLASH = " / ";
 
-	private static final String RLN_RED = TUSCANY + SLASH + SOMERSET_BRIDLEWOOD;
-	private static final String RLN_BLUE = _69_ST_STATION + SLASH + SADDLETOWNE;
+	private static final String RLN_RED = TUSCANY + SLASH + SOMERSET_BRIDLE_WOOD;
+	private static final String RLN_BLUE = _69_ST_STATION + SLASH + SADDLE_TOWNE;
 
+	@NotNull
 	@Override
-	public String getRouteLongName(GRoute gRoute) {
+	public String getRouteLongName(@NotNull GRoute gRoute) {
 		int rsn = Integer.parseInt(gRoute.getRouteShortName());
 		switch (rsn) {
 		// @formatter:off
@@ -115,9 +120,7 @@ public class CalgaryTransitTrainAgencyTools extends DefaultAgencyTools {
 		case RSN_BLUE: return RLN_BLUE;
 		// @formatter:on
 		default:
-			System.out.printf("\nUnexpected route long name for %s!\n", gRoute);
-			System.exit(-1);
-			return null;
+			throw new MTLog.Fatal("Unexpected route long name for %s!", gRoute);
 		}
 	}
 
@@ -125,6 +128,7 @@ public class CalgaryTransitTrainAgencyTools extends DefaultAgencyTools {
 
 	private static final String AGENCY_COLOR = AGENCY_COLOR_RED;
 
+	@NotNull
 	@Override
 	public String getAgencyColor() {
 		return AGENCY_COLOR;
@@ -133,100 +137,72 @@ public class CalgaryTransitTrainAgencyTools extends DefaultAgencyTools {
 	private static final String COLOR_RED_LINE = "EE2622"; // RED (from PDF map)
 	private static final String COLOR_BLUE_LINE = "0F4076"; // BLUE (from PDF map)
 
+	@Nullable
 	@Override
-	public String getRouteColor(GRoute gRoute) {
-		int rsn = Integer.parseInt(gRoute.getRouteShortName());
-		switch (rsn) {
-		// @formatter:off
-		case RSN_RED: return COLOR_RED_LINE;
-		case RSN_BLUE: return COLOR_BLUE_LINE;
-		// @formatter:on
-		default:
-			System.out.println("Unexpected route color " + gRoute);
-			System.exit(-1);
-			return null;
-		}
-	}
-
-	private static final long TRIP_ID_BLUE_SADDLETOWNE = 20200l;
-	private static final String STOP_CODE_69TH_ST = "3627"; // first station 202, 0
-
-	private static final long TRIP_ID_BLUE_69TH_ST = 20201l;
-	private static final String STOP_CODE_SADDLETOWNE = "9781"; // first station 202, 1
-
-	@Override
-	public int compare(long routeId, List<MTripStop> list1, List<MTripStop> list2, MTripStop ts1, MTripStop ts2, GStop ts1GStop, GStop ts2GStop) {
-		if (ts1.getTripId() == TRIP_ID_BLUE_SADDLETOWNE) {
-			if (STOP_CODE_69TH_ST.equals(ts1GStop.getStopCode())) {
-				return +1;
-			} else if (STOP_CODE_69TH_ST.equals(ts2GStop.getStopCode())) {
-				return -1;
-			}
-		} else if (ts1.getTripId() == TRIP_ID_BLUE_69TH_ST) {
-			if (STOP_CODE_SADDLETOWNE.equals(ts1GStop.getStopCode())) {
-				return +1;
-			} else if (STOP_CODE_SADDLETOWNE.equals(ts2GStop.getStopCode())) {
-				return -1;
+	public String getRouteColor(@NotNull GRoute gRoute) {
+		if (StringUtils.isEmpty(gRoute.getRouteColor())) {
+			int rsn = Integer.parseInt(gRoute.getRouteShortName());
+			switch (rsn) {
+			// @formatter:off
+			case RSN_RED: return COLOR_RED_LINE;
+			case RSN_BLUE: return COLOR_BLUE_LINE;
+			// @formatter:on
+			default:
+				throw new MTLog.Fatal("Unexpected route color for %s!", gRoute);
 			}
 		}
-		return super.compare(routeId, list1, list2, ts1, ts2, ts1GStop, ts2GStop);
-	}
-
-	private static final long RID_RED = 201l;
-	private static final long RID_BLUE = 202l;
-
-	@Override
-	public void setTripHeadsign(MRoute mRoute, MTrip mTrip, GTrip gTrip, GSpec gtfs) {
-		mTrip.setHeadsignString(cleanTripHeadsign(gTrip.getTripHeadsign()), gTrip.getDirectionId());
+		return super.getRouteColor(gRoute);
 	}
 
 	@Override
-	public boolean mergeHeadsign(MTrip mTrip, MTrip mTripToMerge) {
-		if (mTrip.getRouteId() == RID_RED) {
-			if (mTrip.getHeadsignId() == 0) {
-				mTrip.setHeadsignString(TUSCANY, mTrip.getHeadsignId());
-				return true;
-			} else if (mTrip.getHeadsignId() == 1) {
-				mTrip.setHeadsignString(SOMERSET_BRIDLEWOOD, mTrip.getHeadsignId());
-				return true;
-			}
-		} else if (mTrip.getRouteId() == RID_BLUE) {
-			if (mTrip.getHeadsignId() == 0) {
-				mTrip.setHeadsignString(SADDLETOWNE, mTrip.getHeadsignId());
-				return true;
-			} else if (mTrip.getHeadsignId() == 1) {
-				mTrip.setHeadsignString(_69_ST_STATION, mTrip.getHeadsignId());
-				return true;
-			}
-		}
-		System.out.printf("\nUnexpected trips to merge %s & %s!\n", mTrip, mTripToMerge);
-		System.exit(-1);
-		return false;
+	public void setTripHeadsign(@NotNull MRoute mRoute, @NotNull MTrip mTrip, @NotNull GTrip gTrip, @NotNull GSpec gtfs) {
+		mTrip.setHeadsignString(
+				cleanTripHeadsign(gTrip.getTripHeadsignOrDefault()),
+				gTrip.getDirectionIdOrDefault()
+		);
 	}
 
 	@Override
-	public String cleanTripHeadsign(String tripHeadsign) {
-		tripHeadsign = tripHeadsign.toLowerCase(Locale.ENGLISH);
+	public boolean directionFinderEnabled() {
+		return true;
+	}
+
+	@Override
+	public boolean mergeHeadsign(@NotNull MTrip mTrip, @NotNull MTrip mTripToMerge) {
+		throw new MTLog.Fatal("Unexpected trips to merge %s & %s!", mTrip, mTripToMerge);
+	}
+
+	@NotNull
+	@Override
+	public String cleanTripHeadsign(@NotNull String tripHeadsign) {
+		tripHeadsign = CleanUtils.toLowerCaseUpperCaseWords(Locale.ENGLISH, tripHeadsign, getIgnoredWords());
+		tripHeadsign = CLEAN_AT_SPACE.matcher(tripHeadsign).replaceAll(CLEAN_AT_SPACE_REPLACEMENT);
 		tripHeadsign = CleanUtils.cleanStreetTypes(tripHeadsign);
 		tripHeadsign = CleanUtils.cleanNumbers(tripHeadsign);
 		return CleanUtils.cleanLabel(tripHeadsign);
 	}
 
-	private static final Pattern ENDS_WITH_BOUND = Pattern.compile("([\\s]*[s|e|w|n]b[\\s]$)", Pattern.CASE_INSENSITIVE);
+	private String[] getIgnoredWords() {
+		return new String[]{
+				"AM", "PM",
+				"EB", "WB", "NB", "SB",
+				"SE", "SW", "NE", "NW",
+				"LRT", "YYC", "TRW", "MRU", "SAIT", "JG", "EEEL",
+				"AUArts", "CTrain",
+		};
+	}
 
-	private static final Pattern STARTS_WITH_BOUND = Pattern.compile("(^[\\s]*[s|e|w|n]b[\\s]*)", Pattern.CASE_INSENSITIVE);
+	private static final Pattern ENDS_WITH_C_TRAIN_STATION = Pattern.compile("( (ctrain )?sta[t]?ion$)", Pattern.CASE_INSENSITIVE);
 
-	private static final Pattern ENDS_WITH_CTRAIN_STATION = Pattern.compile("( (ctrain )?sta[t]?ion$)", Pattern.CASE_INSENSITIVE);
+	private static final Pattern CLEAN_AT_SPACE = Pattern.compile("(\\w)[\\s]*[@][\\s]*(\\w)");
+	private static final String CLEAN_AT_SPACE_REPLACEMENT = "$1 @ $2";
 
-	private static final Pattern AT_SIGN = Pattern.compile("([\\s]*@[\\s]*)", Pattern.CASE_INSENSITIVE);
-	private static final String AT_SIGN_REPLACEMENT = " / ";
-
+	@NotNull
 	@Override
-	public String cleanStopName(String gStopName) {
-		gStopName = STARTS_WITH_BOUND.matcher(gStopName).replaceAll(StringUtils.EMPTY);
-		gStopName = ENDS_WITH_BOUND.matcher(gStopName).replaceAll(StringUtils.EMPTY);
-		gStopName = ENDS_WITH_CTRAIN_STATION.matcher(gStopName).replaceAll(StringUtils.EMPTY);
-		gStopName = AT_SIGN.matcher(gStopName).replaceAll(AT_SIGN_REPLACEMENT);
+	public String cleanStopName(@NotNull String gStopName) {
+		gStopName = CleanUtils.toLowerCaseUpperCaseWords(Locale.ENGLISH, gStopName, getIgnoredWords());
+		gStopName = ENDS_WITH_C_TRAIN_STATION.matcher(gStopName).replaceAll(EMPTY);
+		gStopName = CLEAN_AT_SPACE.matcher(gStopName).replaceAll(CLEAN_AT_SPACE_REPLACEMENT);
 		gStopName = CleanUtils.cleanStreetTypes(gStopName);
 		gStopName = CleanUtils.cleanNumbers(gStopName);
 		return CleanUtils.cleanLabel(gStopName);
