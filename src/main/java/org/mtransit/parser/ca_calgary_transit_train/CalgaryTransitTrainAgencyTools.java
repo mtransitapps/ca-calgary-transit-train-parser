@@ -1,26 +1,18 @@
 package org.mtransit.parser.ca_calgary_transit_train;
 
+import static org.mtransit.commons.StringUtils.EMPTY;
+
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.mtransit.parser.CleanUtils;
+import org.mtransit.commons.CleanUtils;
+import org.mtransit.commons.StringUtils;
 import org.mtransit.parser.DefaultAgencyTools;
 import org.mtransit.parser.MTLog;
-import org.mtransit.parser.StringUtils;
-import org.mtransit.parser.Utils;
-import org.mtransit.parser.gtfs.data.GCalendar;
-import org.mtransit.parser.gtfs.data.GCalendarDate;
 import org.mtransit.parser.gtfs.data.GRoute;
-import org.mtransit.parser.gtfs.data.GSpec;
-import org.mtransit.parser.gtfs.data.GTrip;
 import org.mtransit.parser.mt.data.MAgency;
-import org.mtransit.parser.mt.data.MRoute;
-import org.mtransit.parser.mt.data.MTrip;
 
-import java.util.HashSet;
 import java.util.Locale;
 import java.util.regex.Pattern;
-
-import static org.mtransit.parser.StringUtils.EMPTY;
 
 // https://www.calgarytransit.com/developer-resources
 // https://data.calgary.ca/download/npk7-z3bj/application%2Fzip
@@ -29,55 +21,19 @@ import static org.mtransit.parser.StringUtils.EMPTY;
 // https://data.calgary.ca/_layouts/OpenData/DownloadDataset.ashx?Format=FILE&DatasetId=PDC0-99999-99999-00501-P(CITYonlineDefault)&VariantId=6(CITYonlineDefault)
 public class CalgaryTransitTrainAgencyTools extends DefaultAgencyTools {
 
-	public static void main(@Nullable String[] args) {
-		if (args == null || args.length == 0) {
-			args = new String[3];
-			args[0] = "input/gtfs.zip";
-			args[1] = "../../mtransitapps/ca-calgary-transit-train-android/res/raw/";
-			args[2] = ""; // files-prefix
-		}
+	public static void main(@NotNull String[] args) {
 		new CalgaryTransitTrainAgencyTools().start(args);
 	}
 
-	@Nullable
-	private HashSet<Integer> serviceIdInts;
-
 	@Override
-	public void start(@NotNull String[] args) {
-		MTLog.log("Generating Calgary Transit train data...");
-		long start = System.currentTimeMillis();
-		this.serviceIdInts = extractUsefulServiceIdInts(args, this, true);
-		super.start(args);
-		MTLog.log("Generating Calgary Transit train data... DONE in %s.", Utils.getPrettyDuration(System.currentTimeMillis() - start));
+	public boolean defaultExcludeEnabled() {
+		return true;
 	}
 
+	@NotNull
 	@Override
-	public boolean excludingAll() {
-		return this.serviceIdInts != null && this.serviceIdInts.isEmpty();
-	}
-
-	@Override
-	public boolean excludeCalendar(@NotNull GCalendar gCalendar) {
-		if (this.serviceIdInts != null) {
-			return excludeUselessCalendarInt(gCalendar, this.serviceIdInts);
-		}
-		return super.excludeCalendar(gCalendar);
-	}
-
-	@Override
-	public boolean excludeCalendarDate(@NotNull GCalendarDate gCalendarDates) {
-		if (this.serviceIdInts != null) {
-			return excludeUselessCalendarDateInt(gCalendarDates, this.serviceIdInts);
-		}
-		return super.excludeCalendarDate(gCalendarDates);
-	}
-
-	@Override
-	public boolean excludeTrip(@NotNull GTrip gTrip) {
-		if (this.serviceIdInts != null) {
-			return excludeUselessTripInt(gTrip, this.serviceIdInts);
-		}
-		return super.excludeTrip(gTrip);
+	public String getAgencyName() {
+		return "Calgary Transit";
 	}
 
 	@NotNull
@@ -92,8 +48,13 @@ public class CalgaryTransitTrainAgencyTools extends DefaultAgencyTools {
 	}
 
 	@Override
-	public long getRouteId(@NotNull GRoute gRoute) {
-		return Long.parseLong(gRoute.getRouteShortName()); // using route short name as route ID
+	public boolean defaultRouteIdEnabled() {
+		return true;
+	}
+
+	@Override
+	public boolean useRouteShortNameForRouteId() {
+		return true;
 	}
 
 	private static final int RSN_RED = 201;
@@ -107,21 +68,36 @@ public class CalgaryTransitTrainAgencyTools extends DefaultAgencyTools {
 
 	private static final String SLASH = " / ";
 
-	private static final String RLN_RED = TUSCANY + SLASH + SOMERSET_BRIDLE_WOOD;
-	private static final String RLN_BLUE = _69_ST_STATION + SLASH + SADDLE_TOWNE;
-
 	@NotNull
 	@Override
 	public String getRouteLongName(@NotNull GRoute gRoute) {
-		int rsn = Integer.parseInt(gRoute.getRouteShortName());
-		switch (rsn) {
-		// @formatter:off
-		case RSN_RED: return RLN_RED;
-		case RSN_BLUE: return RLN_BLUE;
-		// @formatter:on
-		default:
-			throw new MTLog.Fatal("Unexpected route long name for %s!", gRoute);
+		if (StringUtils.isEmpty(gRoute.getRouteLongName())) {
+			final int rsn = Integer.parseInt(gRoute.getRouteShortName());
+			switch (rsn) {
+			// @formatter:off
+			case RSN_RED: return TUSCANY + SLASH + SOMERSET_BRIDLE_WOOD;
+			case RSN_BLUE: return _69_ST_STATION + SLASH + SADDLE_TOWNE;
+			// @formatter:on
+			default:
+				throw new MTLog.Fatal("Unexpected route long name for %s!", gRoute);
+			}
 		}
+		return super.getRouteLongName(gRoute);
+	}
+
+	private static final Pattern CTRAIN_ = CleanUtils.cleanWord("ctrain");
+
+	@NotNull
+	@Override
+	public String cleanRouteLongName(@NotNull String routeLongName) {
+		routeLongName = CleanUtils.cleanSlashes(routeLongName);
+		routeLongName = CTRAIN_.matcher(routeLongName).replaceAll(EMPTY);
+		return super.cleanRouteLongName(routeLongName);
+	}
+
+	@Override
+	public boolean defaultAgencyColorEnabled() {
+		return true;
 	}
 
 	private static final String AGENCY_COLOR_RED = "B83A3F"; // LIGHT RED (from web site CSS)
@@ -139,9 +115,9 @@ public class CalgaryTransitTrainAgencyTools extends DefaultAgencyTools {
 
 	@Nullable
 	@Override
-	public String getRouteColor(@NotNull GRoute gRoute) {
+	public String getRouteColor(@NotNull GRoute gRoute, @NotNull MAgency agency) {
 		if (StringUtils.isEmpty(gRoute.getRouteColor())) {
-			int rsn = Integer.parseInt(gRoute.getRouteShortName());
+			final int rsn = Integer.parseInt(gRoute.getRouteShortName());
 			switch (rsn) {
 			// @formatter:off
 			case RSN_RED: return COLOR_RED_LINE;
@@ -151,25 +127,12 @@ public class CalgaryTransitTrainAgencyTools extends DefaultAgencyTools {
 				throw new MTLog.Fatal("Unexpected route color for %s!", gRoute);
 			}
 		}
-		return super.getRouteColor(gRoute);
-	}
-
-	@Override
-	public void setTripHeadsign(@NotNull MRoute mRoute, @NotNull MTrip mTrip, @NotNull GTrip gTrip, @NotNull GSpec gtfs) {
-		mTrip.setHeadsignString(
-				cleanTripHeadsign(gTrip.getTripHeadsignOrDefault()),
-				gTrip.getDirectionIdOrDefault()
-		);
+		return super.getRouteColor(gRoute, agency);
 	}
 
 	@Override
 	public boolean directionFinderEnabled() {
 		return true;
-	}
-
-	@Override
-	public boolean mergeHeadsign(@NotNull MTrip mTrip, @NotNull MTrip mTripToMerge) {
-		throw new MTLog.Fatal("Unexpected trips to merge %s & %s!", mTrip, mTripToMerge);
 	}
 
 	@NotNull
