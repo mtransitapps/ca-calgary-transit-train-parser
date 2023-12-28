@@ -61,7 +61,7 @@ public class CalgaryTransitTrainAgencyTools extends DefaultAgencyTools {
 	@Nullable
 	@Override
 	public String getRouteIdCleanupRegex() {
-		return "\\-\\d+";
+		return "\\-\\d+$";
 	}
 
 	private static final Cleaner RLN_STARTS_WITH_RSN = new Cleaner(
