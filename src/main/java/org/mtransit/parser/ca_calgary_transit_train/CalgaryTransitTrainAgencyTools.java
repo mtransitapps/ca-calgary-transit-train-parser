@@ -1,24 +1,25 @@
 package org.mtransit.parser.ca_calgary_transit_train;
 
+import static org.mtransit.commons.RegexUtils.ANY;
+import static org.mtransit.commons.RegexUtils.BEGINNING;
+import static org.mtransit.commons.RegexUtils.WORD_CAR;
+import static org.mtransit.commons.RegexUtils.atLeastOne;
+import static org.mtransit.commons.RegexUtils.group;
 import static org.mtransit.commons.StringUtils.EMPTY;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.mtransit.commons.CleanUtils;
-import org.mtransit.commons.StringUtils;
+import org.mtransit.commons.Cleaner;
 import org.mtransit.parser.DefaultAgencyTools;
 import org.mtransit.parser.MTLog;
 import org.mtransit.parser.gtfs.data.GRoute;
+import org.mtransit.parser.gtfs.data.GStop;
 import org.mtransit.parser.mt.data.MAgency;
 
 import java.util.Locale;
-import java.util.regex.Pattern;
 
-// https://www.calgarytransit.com/developer-resources
-// https://data.calgary.ca/download/npk7-z3bj/application%2Fzip
-// https://data.calgary.ca/OpenData/Pages/DatasetDetails.aspx?DatasetID=PDC0-99999-99999-00501-P(CITYonlineDefault)
-// https://data.calgary.ca/_layouts/OpenData/DownloadDataset.ashx?Format=FILE&DatasetId=PDC0-99999-99999-00501-P(CITYonlineDefault)&VariantId=5(CITYonlineDefault)
-// https://data.calgary.ca/_layouts/OpenData/DownloadDataset.ashx?Format=FILE&DatasetId=PDC0-99999-99999-00501-P(CITYonlineDefault)&VariantId=6(CITYonlineDefault)
+// https://data.calgary.ca/Transportation-Transit/Calgary-Transit-Scheduling-Data/npk7-z3bj/about_data
 public class CalgaryTransitTrainAgencyTools extends DefaultAgencyTools {
 
 	public static void main(@NotNull String[] args) {
@@ -54,44 +55,46 @@ public class CalgaryTransitTrainAgencyTools extends DefaultAgencyTools {
 
 	@Override
 	public boolean useRouteShortNameForRouteId() {
-		return true;
+		return false; // used GTFS-RT
+	}
+
+	@Nullable
+	@Override
+	public String getRouteIdCleanupRegex() {
+		return "\\-\\d+";
+	}
+
+	private static final Cleaner RLN_STARTS_WITH_RSN = new Cleaner(
+			group(atLeastOne(WORD_CAR)) + " line \\- " + atLeastOne(ANY),
+			"$1",
+			true
+	);
+
+	@Override
+	public @NotNull String getRouteShortName(@NotNull GRoute gRoute) {
+		return RLN_STARTS_WITH_RSN.clean(gRoute.getRouteLongNameOrDefault());
 	}
 
 	private static final int RSN_RED = 201;
 	private static final int RSN_BLUE = 202;
 
-	private static final String SADDLE_TOWNE = "Saddletowne";
-	private static final String SOMERSET_BRIDLE_WOOD = "Somerset-Bridlewood";
-	private static final String _69_ST = "69 St";
-	private static final String _69_ST_STATION = _69_ST + " Sta";
-	private static final String TUSCANY = "Tuscany";
-
-	private static final String SLASH = " / ";
-
-	@NotNull
 	@Override
-	public String getRouteLongName(@NotNull GRoute gRoute) {
-		if (StringUtils.isEmpty(gRoute.getRouteLongName())) {
-			final int rsn = Integer.parseInt(gRoute.getRouteShortName());
-			switch (rsn) {
-			// @formatter:off
-			case RSN_RED: return TUSCANY + SLASH + SOMERSET_BRIDLE_WOOD;
-			case RSN_BLUE: return _69_ST_STATION + SLASH + SADDLE_TOWNE;
-			// @formatter:on
-			default:
-				throw new MTLog.Fatal("Unexpected route long name for %s!", gRoute);
-			}
-		}
-		return super.getRouteLongName(gRoute);
+	public boolean defaultRouteLongNameEnabled() {
+		return true;
 	}
 
-	private static final Pattern CTRAIN_ = CleanUtils.cleanWord("ctrain");
+	private static final Cleaner RLN_STARTS_WITH_RSN_LINE_DASH_ = new Cleaner(
+			BEGINNING + atLeastOne(WORD_CAR) + " line \\- ",
+			EMPTY, true);
+
+	private static final Cleaner CTRAIN_ = new Cleaner(CleanUtils.cleanWord("ctrain"), EMPTY);
 
 	@NotNull
 	@Override
 	public String cleanRouteLongName(@NotNull String routeLongName) {
 		routeLongName = CleanUtils.cleanSlashes(routeLongName);
-		routeLongName = CTRAIN_.matcher(routeLongName).replaceAll(EMPTY);
+		routeLongName = RLN_STARTS_WITH_RSN_LINE_DASH_.clean(routeLongName);
+		routeLongName = CTRAIN_.clean(routeLongName);
 		return super.cleanRouteLongName(routeLongName);
 	}
 
@@ -113,21 +116,17 @@ public class CalgaryTransitTrainAgencyTools extends DefaultAgencyTools {
 	private static final String COLOR_RED_LINE = "EE2622"; // RED (from PDF map)
 	private static final String COLOR_BLUE_LINE = "0F4076"; // BLUE (from PDF map)
 
-	@Nullable
 	@Override
-	public String getRouteColor(@NotNull GRoute gRoute, @NotNull MAgency agency) {
-		if (StringUtils.isEmpty(gRoute.getRouteColor())) {
-			final int rsn = Integer.parseInt(gRoute.getRouteShortName());
-			switch (rsn) {
-			// @formatter:off
-			case RSN_RED: return COLOR_RED_LINE;
-			case RSN_BLUE: return COLOR_BLUE_LINE;
-			// @formatter:on
-			default:
-				throw new MTLog.Fatal("Unexpected route color for %s!", gRoute);
-			}
+	public @Nullable String provideMissingRouteColor(@NotNull GRoute gRoute) {
+		final int rsn = Integer.parseInt(gRoute.getRouteShortName());
+		switch (rsn) {
+		// @formatter:off
+		case RSN_RED: return COLOR_RED_LINE;
+		case RSN_BLUE: return COLOR_BLUE_LINE;
+		// @formatter:on
+		default:
+			throw new MTLog.Fatal("Unexpected route color for %s!", gRoute);
 		}
-		return super.getRouteColor(gRoute, agency);
 	}
 
 	@Override
@@ -139,7 +138,7 @@ public class CalgaryTransitTrainAgencyTools extends DefaultAgencyTools {
 	@Override
 	public String cleanTripHeadsign(@NotNull String tripHeadsign) {
 		tripHeadsign = CleanUtils.toLowerCaseUpperCaseWords(Locale.ENGLISH, tripHeadsign, getIgnoredWords());
-		tripHeadsign = CLEAN_AT_SPACE.matcher(tripHeadsign).replaceAll(CLEAN_AT_SPACE_REPLACEMENT);
+		tripHeadsign = CLEAN_AT_SPACE.clean(tripHeadsign);
 		tripHeadsign = CleanUtils.cleanStreetTypes(tripHeadsign);
 		tripHeadsign = CleanUtils.cleanNumbers(tripHeadsign);
 		return CleanUtils.cleanLabel(tripHeadsign);
@@ -155,19 +154,29 @@ public class CalgaryTransitTrainAgencyTools extends DefaultAgencyTools {
 		};
 	}
 
-	private static final Pattern ENDS_WITH_C_TRAIN_STATION = Pattern.compile("( (ctrain )?sta[t]?ion$)", Pattern.CASE_INSENSITIVE);
+	private static final Cleaner ENDS_WITH_C_TRAIN_STATION = new Cleaner(
+			"( (ctrain )?stat?ion$)",
+			EMPTY,
+			true);
 
-	private static final Pattern CLEAN_AT_SPACE = Pattern.compile("(\\w)[\\s]*[@][\\s]*(\\w)");
-	private static final String CLEAN_AT_SPACE_REPLACEMENT = "$1 @ $2";
+	private static final Cleaner CLEAN_AT_SPACE = new Cleaner(
+			"(\\w)\\s*@\\s*(\\w)",
+			"$1 @ $2"
+	);
 
 	@NotNull
 	@Override
 	public String cleanStopName(@NotNull String gStopName) {
 		gStopName = CleanUtils.toLowerCaseUpperCaseWords(Locale.ENGLISH, gStopName, getIgnoredWords());
-		gStopName = ENDS_WITH_C_TRAIN_STATION.matcher(gStopName).replaceAll(EMPTY);
-		gStopName = CLEAN_AT_SPACE.matcher(gStopName).replaceAll(CLEAN_AT_SPACE_REPLACEMENT);
+		gStopName = ENDS_WITH_C_TRAIN_STATION.clean(gStopName);
+		gStopName = CLEAN_AT_SPACE.clean(gStopName);
 		gStopName = CleanUtils.cleanStreetTypes(gStopName);
 		gStopName = CleanUtils.cleanNumbers(gStopName);
 		return CleanUtils.cleanLabel(gStopName);
+	}
+
+	@Override
+	public int getStopId(@NotNull GStop gStop) {
+		return super.getStopId(gStop); // used for GTFS-RT
 	}
 }
