@@ -40,12 +40,7 @@ public class CalgaryTransitTrainAgencyTools extends DefaultAgencyTools {
 	@NotNull
 	@Override
 	public Integer getAgencyRouteType() {
-		return MAgency.ROUTE_TYPE_TRAIN;
-	}
-
-	@Override
-	public boolean excludeRoute(@NotNull GRoute gRoute) {
-		return gRoute.getRouteType() != MAgency.ROUTE_TYPE_LIGHT_RAIL; // declared as light rail but we classify it as a train (not on the road)
+		return MAgency.ROUTE_TYPE_LIGHT_RAIL;
 	}
 
 	@Override
